@@ -5,32 +5,56 @@
 // SPDX-License-Identifier: MIT
 
 pragma solidity ^0.8.24;
-import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
-
+import {PriceConverter} from "PriceConverter.sol";
 
 contract FundMe{
+    using PriceConverter for uint256; 
     uint256 public minimumUsd = 5e18;
+    address[] public funders;
+    mapping (address => uint256) public addressToAmountFunded;
+    address public owner;
+
+constructor(){
+    owner = msg.sender;
+}
+
     function fund() public payable {
-        require(getConversionRate(msg.value) > minimumUsd, "did not send enough ETH"); //1e18 = 1 ETH = 1**18 wei
+        msg.value.getConversionRate();
+        require(msg.value.getConversionRate() >= minimumUsd, "did not send enough ETH"); //1e18 = 1 ETH = 1**18 wei
+    funders.push(msg.sender); 
+    addressToAmountFunded[msg.sender] = addressToAmountFunded[msg.sender] + msg.value;
     //reverts actually undo any actions that have been done and send the remaining gas back
     } 
-    function getPrice() public view returns (uint256){
-        //Address: 0x694AA1769357215DE4FAC081bf1f309aDC325306
-        //ABI
-        AggregatorV3Interface priceFeed = AggregatorV3Interface(0x694AA1769357215DE4FAC081bf1f309aDC325306); // 0xcA143Ce32Fe7CD597c3EAbC66d021D4BDDd2938a
-        (,int256 price,,,) = priceFeed.latestRoundData();
-        //Price of ETH in terms of USD
-        // 2000.00000000 (solidity does not have decimal places
-        return uint256(price * 1e10);
-        
-    }
-    function getConversionRate(uint ethAmount) public view returns(uint256){
-        uint256 ethPrice = getPrice();
-        uint256 ethAmountInUsd = (ethPrice * ethAmount)/ 1e10;
-        return ethAmountInUsd;
+    function withdraw() public onlyOwner{
+        // require(msg.sender == owner, "You cannot withdraw from other addresses!");
+        for(uint256 funderIndex = 0; funderIndex < funders.length; funderIndex++){
+            address funder = funders[funderIndex];
+            addressToAmountFunded[funder] = 0;
+
+        }
+        funders = new address[](0);//resetting the array
+
+        //transfer
+        //send
+        //call
+
+        //msg.sender = address
+        //payable(msg.sender) = payable address
+
+        //transfer
+        // payable (msg.sender).transfer(address(this).balance);
+        //send
+        // bool sendSuccess = payable(msg.sender).send(address(this).balance);
+        // require(sendSuccess, "Send failed");
+        //call
+        (bool callSuccess,) =payable(msg.sender).call{value: address(this).balance}("");
+        require(callSuccess, "Call failed");
     }
 
-    function getVersion() public view returns (uint256){
-        return AggregatorV3Interface(0x694AA1769357215DE4FAC081bf1f309aDC325306).version();
+    modifier onlyOwner(){ 
+        require(msg.sender == owner, "Not authorized!");
+        _;
+        
     }
+   
 }
